@@ -1,0 +1,14 @@
+node_modules/
+.docusaurus/
+build/
+docs/
+static/atlas/
+static/diagrams/
+static/data/
+src/data/
+sidebars.generated.json
+output/
+.playwright-cli/
+.DS_Store
+*.log
+.env*

@@ -1,0 +1,3 @@
+# core-jsのpostinstallは導入案内だけで、サイトのビルドには不要。
+allowBuilds:
+  core-js: false

@@ -1,0 +1,785 @@
+{
+  "commit": "efb532f74c383cd35c055d85d3f989ba643c3611",
+  "date": "2026-10-06",
+  "version_scope": "pnpm-lock.yaml / uv.lockの解決版、manifestの要求範囲、Compose imageの設定。実行環境の導入済み版は未確認。",
+  "technologies": [
+    {
+      "id": "node",
+      "group": "言語・開発基盤",
+      "name": "Node.js / pnpm",
+      "purpose": "JavaScriptを端末で実行し、複数packageの依存とコマンドを管理する。",
+      "place": "開発端末・CI・Electron main",
+      "role": "pnpm workspaceでdesktop/api-clientをまとめ、起動・生成・検証スクリプトを実行する。",
+      "version": "Node.js 26.5.0 / pnpm@11.25.0",
+      "sources": [
+        "package.json",
+        ".node-version",
+        "pnpm-workspace.yaml"
+      ],
+      "note": "Node指定は開発コマンドの契約。Electron内蔵Nodeの版はElectron自身に従う。",
+      "diagrams": "50,55"
+    },
+    {
+      "id": "typescript",
+      "group": "言語・開発基盤",
+      "name": "TypeScript",
+      "purpose": "JavaScriptに型を付け、実行前に値や呼出の不整合を検出する。",
+      "place": "Desktop main / preload / renderer・生成API client",
+      "role": "strictな設定でIPC入力型、画面データ、API DTOを共有し、main用とweb用を別設定で検証する。",
+      "version": "typescript 6.0.3",
+      "sources": [
+        "apps/desktop/package.json",
+        "apps/desktop/tsconfig.node.json",
+        "apps/desktop/tsconfig.web.json",
+        "apps/api-client/tsconfig.json"
+      ],
+      "note": "型検査だけでは実行時の不正入力は防げないため、IPCやAPI境界でも検証する。",
+      "diagrams": "02,43"
+    },
+    {
+      "id": "python",
+      "group": "言語・開発基盤",
+      "name": "Python / uv",
+      "purpose": "PythonはBackendの実装言語。uvは依存の解決・固定と仮想環境での実行を管理する。",
+      "place": "API・worker・MCP server・CI",
+      "role": "pyproject.tomlとuv.lockから環境を再現し、uv runでAPI/workerと品質チェックを動かす。",
+      "version": "Python要求 >=3.13 / uvの実行版はrepoで固定なし",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/uv.lock",
+        ".github/actions/setup-backend-uv/action.yml"
+      ],
+      "note": "requires-pythonは要求範囲で、起動済みプロセスのPython版を確認した値ではない。",
+      "diagrams": "02,50"
+    },
+    {
+      "id": "vite",
+      "group": "言語・開発基盤",
+      "name": "Vite / electron-vite / electron-builder",
+      "purpose": "開発時の更新と配布用のビルド・パッケージ作成を行う。",
+      "place": "開発端末・CI",
+      "role": "electron-viteがmain/preload/rendererを分けてViteでbuildし、electron-builderがOS別配布物を作る。",
+      "version": "vite 7.3.6 / electron-vite 5.0.0 / electron-builder 26.15.3",
+      "sources": [
+        "apps/desktop/package.json",
+        "apps/desktop/electron.vite.config.ts"
+      ],
+      "note": "配布物のbuildと、配布したアプリの動作確認smokeは別の検証。",
+      "diagrams": "50,55"
+    },
+    {
+      "id": "electron",
+      "group": "Desktop・画面",
+      "name": "Electron / preload / IPC",
+      "purpose": "Web技術でデスクトップ画面を作り、限定された窓口を通してOS操作へ接続する。",
+      "place": "利用者端末",
+      "role": "React rendererからpreloadの製品APIを介してmainへ要求し、workspace・ファイル保存・OAuth callback等を扱う。",
+      "version": "electron 43.6.0 / @electron-toolkit/preload 3.0.2 / @electron-toolkit/utils 4.0.0",
+      "sources": [
+        "apps/desktop/package.json",
+        "apps/desktop/src/preload/index.ts",
+        "apps/desktop/src/main/index.ts"
+      ],
+      "note": "rendererの画面処理とmainのOS操作は別プロセスの責任。",
+      "diagrams": "02,04,32,43,44"
+    },
+    {
+      "id": "react",
+      "group": "Desktop・画面",
+      "name": "React / React DOM",
+      "purpose": "画面を再利用可能なcomponentとstateで組み立てる。",
+      "place": "Electron renderer",
+      "role": "ゴール入力、承認画面、学習、教材、決済等の画面を描画する。",
+      "version": "react 19.2.8 / react-dom 19.2.8",
+      "sources": [
+        "apps/desktop/package.json",
+        "apps/desktop/src/renderer/src/render-app.tsx"
+      ],
+      "note": "",
+      "diagrams": "01,13,20"
+    },
+    {
+      "id": "router",
+      "group": "Desktop・画面",
+      "name": "React Router",
+      "purpose": "URLや画面の関係を管理し、表示する画面を選ぶ。",
+      "place": "Electron renderer",
+      "role": "HashRouterを入口に、ログイン状態や法務同意などの条件と画面遷移を組み合わせる。",
+      "version": "react-router 8.3.1",
+      "sources": [
+        "apps/desktop/package.json",
+        "apps/desktop/src/renderer/src/render-app.tsx"
+      ],
+      "note": "",
+      "diagrams": "05,06,13"
+    },
+    {
+      "id": "query",
+      "group": "Desktop・画面",
+      "name": "TanStack Query",
+      "purpose": "サーバーから取得したデータをcacheし、再取得や更新後の整合を管理する。",
+      "place": "Electron renderer",
+      "role": "QueryClientと機能hookでAPI query/mutationを管理し、owner変更時には旧利用者のcacheを消去する。",
+      "version": "@tanstack/react-query 5.102.8",
+      "sources": [
+        "apps/desktop/package.json",
+        "apps/desktop/src/renderer/src/lib/query-client.ts",
+        "apps/desktop/src/renderer/src/render-app.tsx"
+      ],
+      "note": "OpenAPI生成物はfetch request関数。業務ごとのquery hookは画面側が持つ。",
+      "diagrams": "02,10,21"
+    },
+    {
+      "id": "ui",
+      "group": "Desktop・画面",
+      "name": "HeroUI / Tailwind CSS / Motion",
+      "purpose": "画面部品、見た目の調整、アニメーションを提供する。",
+      "place": "Electron renderer・build",
+      "role": "HeroUI部品とToast、TailwindのCSS、MotionConfigのreducedMotion設定で画面を構成する。",
+      "version": "@heroui/react 3.2.4 / tailwindcss 4.3.3 / motion 12.43.0",
+      "sources": [
+        "apps/desktop/package.json",
+        "apps/desktop/electron.vite.config.ts",
+        "apps/desktop/src/renderer/src/render-app.tsx"
+      ],
+      "note": "",
+      "diagrams": "02"
+    },
+    {
+      "id": "content",
+      "group": "Desktop・画面",
+      "name": "react-markdown / GFM / Shiki / Mermaid",
+      "purpose": "Markdown本文、表やコード、図を画面へ表示する。",
+      "place": "Electron renderer",
+      "role": "教材・学習ガイドの本文を描画し、コードのsyntax highlightとMermaid図の表示を支える。",
+      "version": "react-markdown 10.1.0 / remark-gfm 4.0.1 / rehype-pretty-code 0.14.5 / shiki 4.4.3 / mermaid 11.17.2",
+      "sources": [
+        "apps/desktop/package.json"
+      ],
+      "note": "この説明ページとロジック図解の閲覧版は、SVGを埋め込んだ静的HTMLで閲覧できる。",
+      "diagrams": "20,27,30"
+    },
+    {
+      "id": "uploads",
+      "group": "Desktop・画面",
+      "name": "FilePond / React FilePond",
+      "purpose": "ファイル選択、形式やサイズの検査、画像previewや変換を行う。",
+      "place": "Electron renderer",
+      "role": "プロフィールなどの画像入力に使う。file-validate-size/type、crop、EXIF、preview、resize、transformのpluginを採用する。",
+      "version": "filepond 4.32.12 / react-filepond 7.1.3",
+      "sources": [
+        "apps/desktop/package.json"
+      ],
+      "note": "画面の入力補助に加え、Backendでも画像を検証する。",
+      "diagrams": "07"
+    },
+    {
+      "id": "ui-support",
+      "group": "Desktop・画面",
+      "name": "React Icons / Vertical Timeline",
+      "purpose": "アイコンと時間順の出来事の表示部品を提供する。",
+      "place": "Electron renderer",
+      "role": "機能のアイコンや学習等の履歴表示を構成する補助UI依存。",
+      "version": "react-icons 5.7.0 / react-vertical-timeline-component 4.0.0",
+      "sources": [
+        "apps/desktop/package.json"
+      ],
+      "note": "",
+      "diagrams": "25"
+    },
+    {
+      "id": "fastapi",
+      "group": "API・Backend",
+      "name": "FastAPI / Uvicorn",
+      "purpose": "FastAPIがHTTP APIと入力検証を定義し、UvicornがASGIアプリを起動する。",
+      "place": "Backend API process",
+      "role": "routerを公開し、認証・法務gate・Module applicationへ処理を渡す。FastAPIからOpenAPIを生成する。",
+      "version": "fastapi 0.139.0 / uvicorn 0.49.0",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/src/metis_backend/main.py"
+      ],
+      "note": "",
+      "diagrams": "02,05"
+    },
+    {
+      "id": "pydantic",
+      "group": "API・Backend",
+      "name": "Pydantic / pydantic-settings",
+      "purpose": "データをschemaに沿って検証し、設定値を型として読み込む。",
+      "place": "Backend API・worker",
+      "role": "API DTO、AI構造化出力、runtime snapshot、環境設定を検査する。",
+      "version": "pydantic 2.13.4 / pydantic-settings 2.14.2",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/src/metis_backend/config.py",
+        "apps/backend/src/metis_backend/services/generation/structured_outputs.py"
+      ],
+      "note": "",
+      "diagrams": "13,51,54"
+    },
+    {
+      "id": "httpx",
+      "group": "API・Backend",
+      "name": "HTTPX / orjson / python-multipart",
+      "purpose": "外部HTTP通信、高速なJSON処理、multipartの受信を支える。",
+      "place": "Backend",
+      "role": "外部API・文書検索通信、JSON応答や画像等のアップロード境界の補助ライブラリ。",
+      "version": "httpx 0.28.1 / orjson 3.11.9 / python-multipart 0.0.32",
+      "sources": [
+        "apps/backend/pyproject.toml"
+      ],
+      "note": "",
+      "diagrams": "07,18"
+    },
+    {
+      "id": "auth-verification",
+      "group": "API・Backend",
+      "name": "PyJWT / cryptography / truststore",
+      "purpose": "署名tokenの検証、暗号処理、OSの証明書storeを使うTLS通信を支える。",
+      "place": "Backend",
+      "role": "JWTのclaims/署名と利用者principalを検証する。秘密値自体を図解やログに載せない。",
+      "version": "pyjwt 2.15.1 / cryptography 50.0.0 / truststore 0.10.4",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/src/metis_backend/config.py"
+      ],
+      "note": "PyJWT lock版は2.15.1。依存更新commitのタイトルと、最終lockfileの解決版を区別した。",
+      "diagrams": "05"
+    },
+    {
+      "id": "openapi",
+      "group": "API・Backend",
+      "name": "OpenAPI / Orval / custom fetcher",
+      "purpose": "APIの契約からTypeScriptの型とHTTP呼出関数を生成する。",
+      "place": "生成は開発端末/CI・呼出はrenderer",
+      "role": "FastAPI→openapi.generated.yaml→Orvalのtags-split/fetch生成→customInstance。認証tokenとApiErrorの正規化は手書きfetcherに集約する。",
+      "version": "orval 8.29.0",
+      "sources": [
+        "package.json",
+        "apps/api-client/orval.config.ts",
+        "apps/api-client/README.md",
+        "apps/api-client/src/api-fetcher.ts"
+      ],
+      "note": "生成React Query hooksの設定ではない。機能hookはDesktopが実装する。",
+      "diagrams": "02,55"
+    },
+    {
+      "id": "supabase",
+      "group": "データ・認証",
+      "name": "Supabase / client SDK / CLI",
+      "purpose": "Database、Auth、Storage、Realtime等をまとめた基盤と、その操作窓口。",
+      "place": "devではSupabase local・SDKはrenderer/Backend",
+      "role": "JS/Python SDKで認証・データ・Storageを利用し、CLIでローカル起動とmigration適用を行う。",
+      "version": "@supabase/supabase-js 2.110.0 / Python supabase 2.31.0 / CLI 2.116.0",
+      "sources": [
+        "apps/desktop/package.json",
+        "apps/backend/pyproject.toml",
+        "package.json",
+        "supabase/config.toml"
+      ],
+      "note": "同じsupabaseという名前でも、Python packageとNodeのCLI packageは別の版。",
+      "diagrams": "02,05,47,50"
+    },
+    {
+      "id": "postgres",
+      "group": "データ・認証",
+      "name": "PostgreSQL / SQL migrations",
+      "purpose": "表・制約・transactionで永続データを管理する。",
+      "place": "Supabase Database",
+      "role": "正本のsupabase/migrations/*.sqlでFK・UNIQUE・CHECK、状態、履歴、RPCを定義する。",
+      "version": "local config: PostgreSQL major 17",
+      "sources": [
+        "supabase/config.toml",
+        "docs/design/10-database-schema/README.md",
+        "supabase/migrations/20250101000000_extensions.sql"
+      ],
+      "note": "major_versionはlocalの要求設定。実DBの稼働版やmigration適用状態は今回未確認。",
+      "diagrams": "47,52"
+    },
+    {
+      "id": "rls",
+      "group": "データ・認証",
+      "name": "RLS / RPC / lock / CAS",
+      "purpose": "行単位のアクセス制御と、DB内の原子的な処理・競合検出。",
+      "place": "PostgreSQL",
+      "role": "RLSで主体ごとの行アクセスを制限し、RPCのlock/CASで承認、利用権、jobのfencing等を確定する。",
+      "version": "DB機能・SQL契約（独立したpackage版なし）",
+      "sources": [
+        "docs/architecture/module-contracts.md",
+        "docs/design/10-database-schema/job-attempt-fencing.md"
+      ],
+      "note": "service_role経路ではRLSだけに依存せず、API/application/RPCでも認可と条件を検査する。",
+      "diagrams": "13,35,38,46,47"
+    },
+    {
+      "id": "supabase-auth",
+      "group": "データ・認証",
+      "name": "Supabase Auth / OAuth / PKCE",
+      "purpose": "利用者のログインとsession tokenを管理する。PKCEは認可codeの交換を保護する。",
+      "place": "Supabase Auth・renderer・外部ブラウザー・main callback",
+      "role": "GitHub/Googleなどのソーシャル認証からcallbackを受け、coordinatorが認証snapshotを更新する。",
+      "version": "Auth service版はlocal稼働環境に依存",
+      "sources": [
+        "supabase/config.toml",
+        "apps/desktop/src/renderer/src/modules/account/auth/oauth-commands.ts",
+        "scripts/local-env.mjs"
+      ],
+      "note": "Google nonce検査を維持する。ローカル設定診断は値を出さず不足・形式を通知する。",
+      "diagrams": "04,05,08,10"
+    },
+    {
+      "id": "storage",
+      "group": "データ・認証",
+      "name": "Supabase Storage",
+      "purpose": "大きなファイルをbucketとobject keyで保存し、認可されたURLで配信する。",
+      "place": "Supabase Storage・Backend/worker",
+      "role": "教材本文、sample code、環境archive、画像、export、AI入出力などをDBから参照する。環境成果物はimmutable keyと証跡を照合する。",
+      "version": "Storage service版はlocal稼働環境に依存",
+      "sources": [
+        "supabase/migrations/20250101020000_storage_buckets.sql",
+        "docs/architecture/module-contracts.md"
+      ],
+      "note": "StorageとDBは単一transactionではない。環境公開にはread-backとledger照合を用いる。",
+      "diagrams": "19,26,29,32,48"
+    },
+    {
+      "id": "realtime-vault",
+      "group": "データ・認証",
+      "name": "Supabase Realtime / Vault",
+      "purpose": "Realtimeは変更イベントを購読し、Vaultは秘密値をDB側で管理する。",
+      "place": "Realtime server・PostgreSQL・renderer",
+      "role": "通知は本人向けchannelを購読し、ownerや寿命の変化で解除する。Vault wrapperは秘密値へのアクセス窓口を限定する。",
+      "version": "service / extensionの実版は未確認",
+      "sources": [
+        "apps/desktop/src/renderer/src/modules/notifications/realtime.ts",
+        "supabase/migrations/20250101024000_job_rpc.sql"
+      ],
+      "note": "イベント受信そのものを永続的な通知read状態や認可の代替にしない。",
+      "diagrams": "08,10,37"
+    },
+    {
+      "id": "queues",
+      "group": "データ・認証",
+      "name": "PGMQ / pg_cron",
+      "purpose": "PGMQはPostgres上のqueue。pg_cronはDB内で定期処理を起動する。",
+      "place": "PostgreSQL・別worker process",
+      "role": "2種類のqueueと6 job typeを扱うworkerを組み立てる。期限切れattempt等の保守や法務文書施行はSQL/保守loopへ分担する。",
+      "version": "Python pgmq 1.1.2 / extension実版は未確認",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "supabase/migrations/20250101000000_extensions.sql",
+        "supabase/migrations/20250101022000_cron.sql",
+        "apps/backend/src/metis_backend/composition/worker.py"
+      ],
+      "note": "cpu_bound/io_boundはqueue分類名。全job種別が実装済みという意味ではなく、code_evaluation handlerはplaceholder。",
+      "diagrams": "45,46,48"
+    },
+    {
+      "id": "openrouter",
+      "group": "AI・公式文書",
+      "name": "OpenRouter / OpenAI Python SDK",
+      "purpose": "複数モデルへの要求をgatewayに送り、互換SDKでHTTPと構造化応答を扱う。",
+      "place": "Backend・worker→外部OpenRouter",
+      "role": "AsyncOpenAIのbase_urlをOpenRouterへ向け、provider route、retry、token、実費、strict schema/fallbackを制御する。",
+      "version": "openai 2.44.0 / 接続先 https://openrouter.ai/api/v1",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/src/metis_backend/config.py",
+        "apps/backend/src/metis_backend/ai/openrouter_transport.py"
+      ],
+      "note": "SDK名と実際の送信先は別。configのdefault/guardrailはopenai/gpt-5.6-luna、imageはqwen/qwen-image-3。設定/profile/job snapshotで変わる。Jev専用経路はdevelopにない。",
+      "diagrams": "17,29,51,54"
+    },
+    {
+      "id": "harness",
+      "group": "AI・公式文書",
+      "name": "GuideGenerationHarness / AI実行台帳",
+      "purpose": "Metis独自の生成手順制御と、AI実行の再利用・費用・結果を記録する仕組み。",
+      "place": "guide_generation worker",
+      "role": "承認後の章patch、review/repair、summary、安全性、環境公開を制御する。revisionと台帳から再開し、確認済み実費をソフト上限で検査する。",
+      "version": "repo内実装（外部packageではない）",
+      "sources": [
+        "apps/backend/src/metis_backend/services/generation/guide_harness.py",
+        "apps/backend/src/metis_backend/ai/execution_ledger.py",
+        "docs/adr/ADR-050-guide-generation-dedicated-full-harness.md"
+      ],
+      "note": "全AI workflowをLangGraphが制御する構成ではない。",
+      "diagrams": "13,14,15,16,17"
+    },
+    {
+      "id": "langgraph",
+      "group": "AI・公式文書",
+      "name": "LangGraph / LangChain Core",
+      "purpose": "状態graphとtool node、AI message等の共通表現を提供する。",
+      "place": "Grounded Docs tool agent",
+      "role": "grounded_docs.pyのStateGraph/ToolNodeで公式文書toolの選択・実行と結果を制御する。",
+      "version": "langgraph 1.2.9 / langchain-core 1.4.9",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/src/metis_backend/ai/grounded_docs.py",
+        "apps/backend/src/metis_backend/ai/workflow_langgraph.py"
+      ],
+      "note": "LangGraphGuideGenerationWorkflowという名前のクラスは共通workflow adapter。実際にgraphを構築している箇所とは区別する。",
+      "diagrams": "18"
+    },
+    {
+      "id": "mcp",
+      "group": "AI・公式文書",
+      "name": "Grounded Docs / MCP",
+      "purpose": "MCPはtoolを共通形式で公開する規約。Grounded Docsは公式文書の取得済み索引と検索tool。",
+      "place": "read-only MCP server・Backend client",
+      "role": "sources.tomlのlibrary/version/URLを明示取得し、保存索引から文書packetを返して生成contextへ入れる。",
+      "version": "mcp 1.28.1 / 既定URL http://127.0.0.1:6280/mcp",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "grounded-docs/README.md",
+        "grounded-docs/sources.toml",
+        "docs/adr/ADR-046-grounded-docs-mcp-generation-tool.md"
+      ],
+      "note": "dev:pstartは既存索引でserverを起動するだけ。文書の取得・更新は明示コマンド。",
+      "diagrams": "18,50"
+    },
+    {
+      "id": "containers",
+      "group": "学習コードの実行",
+      "name": "Docker互換Linux Engine / Dev Containers CLI",
+      "purpose": "学習コードと開発依存をローカルcontainer内で動かす。",
+      "place": "利用者端末・Electron main→container",
+      "role": "環境archiveとmanifestを検証してworkspaceを準備し、CLIでDev Containerを起動、exec・再接続・停止を管理する。",
+      "version": "@devcontainers/cli 0.89.0 / Docker Engine実版は端末依存",
+      "sources": [
+        "apps/desktop/package.json",
+        "apps/desktop/src/main/workspace-runtime/runtime-provider.ts",
+        "docs/adr/ADR-006-local-devcontainer-runtime.md",
+        "docs/adr/ADR-049-docker-compatible-local-linux-engine.md"
+      ],
+      "note": "製品runtimeはremote context/Windows Engineを拒否し、global contextを変えない。Docker Desktopの自動起動は行わず手動案内する。開発/CIスクリプトの起動補助とは別。",
+      "diagrams": "43,44,50,55"
+    },
+    {
+      "id": "vscode",
+      "group": "学習コードの実行",
+      "name": "Visual Studio Code",
+      "purpose": "学習用ファイルを編集する外部エディター。",
+      "place": "利用者端末",
+      "role": "利用者の明示操作でworkspaceを開き、container内実装へ進める。",
+      "version": "利用者が導入する外部アプリ（実版は未確認）",
+      "sources": [
+        "docs/adr/ADR-025-vscode-as-learning-editor.md",
+        "apps/desktop/src/main/workspace.ts"
+      ],
+      "note": "VS Codeの起動自体と、Metisが収集する実行証跡/評価は別。",
+      "diagrams": "43,44"
+    },
+    {
+      "id": "stripe",
+      "group": "決済・ファイル生成",
+      "name": "Stripe / Stripe CLI",
+      "purpose": "checkout・subscription・請求等の決済と、ローカルwebhook転送を提供する。",
+      "place": "Backend→Stripe・dev端末",
+      "role": "billing actorと利用権を確認してcheckout/portalを作り、webhookは重複・retryを考慮して取引を反映する。",
+      "version": "Python stripe 15.3.0 / CLI @stripe/cli 1.50.10",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "package.json",
+        "apps/backend/src/metis_backend/config.py",
+        "docs/architecture/module-contracts.md"
+      ],
+      "note": "支払い・教材利用権・教材学習開始は別の状態として管理する。",
+      "diagrams": "38,39,40"
+    },
+    {
+      "id": "images",
+      "group": "決済・ファイル生成",
+      "name": "Pillow / pillow-heif",
+      "purpose": "画像の読込・変換・合成を行う。HEIF等の入力形式を補助する。",
+      "place": "Backend・thumbnail worker",
+      "role": "プロフィール画像を検証・変換し、AI生成背景と固定レイアウト/文字を合成してサムネイルを作る。",
+      "version": "pillow 12.3.0 / pillow-heif 1.4.0",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/src/metis_backend/services/account_write.py",
+        "apps/backend/src/metis_backend/services/materials/thumbnail_composition.py"
+      ],
+      "note": "",
+      "diagrams": "07,29"
+    },
+    {
+      "id": "pdf",
+      "group": "決済・ファイル生成",
+      "name": "ReportLab / pypdf",
+      "purpose": "PDFの生成と内容の読取・検証を行う。",
+      "place": "export worker・テスト",
+      "role": "ReportLabで教材export PDFを生成する。pypdfはdev依存として出力の検証等に使う。",
+      "version": "reportlab 5.0.0 / pypdf 6.19.0",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/src/metis_backend/workers/export.py"
+      ],
+      "note": "pypdfを本番PDF生成engineとして説明しない。",
+      "diagrams": "32"
+    },
+    {
+      "id": "otel",
+      "group": "ログ・監視",
+      "name": "OpenTelemetry / OTLP / Collector",
+      "purpose": "logs・traces・metricsを共通形式で集め、集約先へ送る。",
+      "place": "API・worker・Desktop main・別Collector container",
+      "role": "serviceやtrace等の属性を付けてCollectorへ送り、ClickStack形式で保存する。未有効化時はno-op経路を持つ。",
+      "version": "opentelemetry-sdk 1.43.0 / Collector image tag 2・digest固定",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/src/metis_backend/core/observability.py",
+        "apps/desktop/src/main/desktop-observability.ts",
+        "infra/observability/compose.yaml",
+        "infra/observability/otel-collector/metis.config.yaml"
+      ],
+      "note": "prompt/tokenや個人本文をmetric labelに含めない。稼働中のCollectorに到達することは今回未検証。",
+      "diagrams": "49"
+    },
+    {
+      "id": "structlog",
+      "group": "ログ・監視",
+      "name": "structlog",
+      "purpose": "ログを構造化した項目として記録する。",
+      "place": "Backend API・worker",
+      "role": "event名と相関情報を記録し、通常ログとOpenTelemetryのログ経路へ接続する。",
+      "version": "structlog 26.1.0",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "apps/backend/src/metis_backend/core/logging.py"
+      ],
+      "note": "",
+      "diagrams": "49"
+    },
+    {
+      "id": "clickhouse",
+      "group": "ログ・監視",
+      "name": "ClickHouse / HyperDX / ClickStack",
+      "purpose": "ClickHouseが観測データを保存し、HyperDXが横断検索・可視化の画面を提供する。",
+      "place": "別のobservability container stack",
+      "role": "Collector→ClickHouse→HyperDXの経路で障害や性能を調べる。ClickStackはこの観測構成の名前。",
+      "version": "ClickHouse image 26.6-alpine / HyperDX tag 2（各digest固定）",
+      "sources": [
+        "infra/observability/compose.yaml",
+        "docs/adr/ADR-043-clickstack-unified-observability.md"
+      ],
+      "note": "アプリの業務DBはPostgres。ClickHouseは観測データの保存先。",
+      "diagrams": "49"
+    },
+    {
+      "id": "mongo",
+      "group": "ログ・監視",
+      "name": "MongoDB",
+      "purpose": "document形式でデータを保存する。",
+      "place": "observability stack",
+      "role": "HyperDXのアプリ設定保存を支える。Metisの教材や課金の正本DBではない。",
+      "version": "image 5.0.33-focal・digest固定",
+      "sources": [
+        "infra/observability/compose.yaml"
+      ],
+      "note": "",
+      "diagrams": "49"
+    },
+    {
+      "id": "python-quality",
+      "group": "品質・CI・開発運用",
+      "name": "pytest / Ruff / mypy / Bandit",
+      "purpose": "テスト、lint/format、型、セキュリティ静的検査を分担する。",
+      "place": "Backend開発端末・CI",
+      "role": "pytest-asyncio/cov、respx、Schemathesis等も組み合わせ、API・業務・DB統合の契約を検証する。",
+      "version": "pytest 9.1.1 / ruff 0.15.20 / mypy 2.1.0 / bandit 1.9.4",
+      "sources": [
+        "apps/backend/pyproject.toml",
+        "scripts/dev-perfect-test.mjs",
+        ".github/workflows/backend-ci.yml"
+      ],
+      "note": "DB検証は専用Supabaseを使う。テスト成功と本番activation完了は別。",
+      "diagrams": "50,55"
+    },
+    {
+      "id": "desktop-quality",
+      "group": "品質・CI・開発運用",
+      "name": "Node test / Playwright / MSW",
+      "purpose": "関数のテスト、実ブラウザー/Electron操作、API mockを分担する。",
+      "place": "Desktop開発端末・CI",
+      "role": "node --test/tsxでunit、PlaywrightでE2E、MSW/openapi-mswでAPI mock。typecheck/buildと配布smokeを別段階で検証する。",
+      "version": "@playwright/test 1.63.0 / msw 2.15.0 / openapi-msw 2.0.0 / tsx 4.23.13",
+      "sources": [
+        "apps/desktop/package.json",
+        "scripts/dev-perfect-test.mjs",
+        ".github/workflows/app-ci.yml"
+      ],
+      "note": "この図解変更のブラウザー検証はローカルChromium。Metis本体の3 OS CIを今回再実行したという意味ではない。",
+      "diagrams": "50,55"
+    },
+    {
+      "id": "ci",
+      "group": "品質・CI・開発運用",
+      "name": "GitHub Actions / quality gates",
+      "purpose": "変更ごとに自動検証を実行し、PRの結果を集約する。",
+      "place": "GitHub-hosted Ubuntu・self-hosted Windows/macOS",
+      "role": "変更範囲に応じてAPI client、Desktop、root scripts、Backend/Supabaseを検査する。Linuxは最新developで一時的にubuntu-latest。",
+      "version": "Workflow定義は対象commitに固定",
+      "sources": [
+        ".github/workflows/app-ci.yml",
+        ".github/workflows/backend-ci.yml",
+        "scripts/ci-docker-preflight.mjs"
+      ],
+      "note": "Desktop renderer E2EはWindows/macOS。runtime smokeはLinux/Windows/macOS。実行結果やrunnerのonline状態は未確認。",
+      "diagrams": "55"
+    },
+    {
+      "id": "release-deps",
+      "group": "品質・CI・開発運用",
+      "name": "Release Drafter / Renovate",
+      "purpose": "PRからrelease noteを用意し、依存更新を提案・検証する。",
+      "place": "GitHub運用",
+      "role": "PR分類ラベルに従ってrelease draftを組み立てる。依存更新後の生成物/第三者license整合はCIで確認する。",
+      "version": "設定・Workflowの契約に従う",
+      "sources": [
+        ".github/release-drafter.yml",
+        ".github/workflows/release-drafter.yml",
+        ".github/workflows/renovate-license-autofix.yml"
+      ],
+      "note": "draft作成、アプリの配布、release公開は別の操作。",
+      "diagrams": "50,55"
+    },
+    {
+      "id": "projects-discord",
+      "group": "品質・CI・開発運用",
+      "name": "GitHub Projects / Discord webhook",
+      "purpose": "Issueの予定・担当一覧を開発メンバーへ届ける。",
+      "place": "GitHub Actions→GitHub API→Discord",
+      "role": "日付・担当者・予定を分類して09:00 JSTに投稿。履歴hashで同日再送を抑止し、dry-runでは本文をSummaryへ出す。",
+      "version": "日次通知スクリプトは対象commitの実装",
+      "sources": [
+        "docs/PROJECT_MANAGEMENT.md",
+        ".github/workflows/notify-issue-schedule.yml",
+        ".github/scripts/notify-issue-schedule.mjs"
+      ],
+      "note": "これは開発運用の通知。Metis利用者のアプリ内notificationsとは別。今回実際のDiscord送信は行っていない。",
+      "diagrams": "56"
+    }
+  ],
+  "architecture": {
+    "title": "技術スタックの接続と実行場所",
+    "terms": [],
+    "nodes": {
+      "ui": "利用者端末: React renderer",
+      "auth": "Supabase Auth・Realtime",
+      "client": "TanStack Query・生成fetch client",
+      "ipc": "preload / IPC",
+      "main": "Electron main",
+      "devcontainer": "Dev Containers CLI・Linux Engine",
+      "api": "Python API: FastAPI / Uvicorn",
+      "db": "Supabase Postgres: RPC・RLS・PGMQ",
+      "storage": "Supabase Storage",
+      "worker": "Python worker: 専用harness・handler",
+      "router": "OpenRouter: 生成・構造化判定",
+      "docs": "公式文書read-only MCP・LangGraph tool agent",
+      "stripe": "Stripe",
+      "collector": "OTel Collector",
+      "clickhouse": "ClickHouse",
+      "hyperdx": "HyperDX + Mongo設定DB"
+    },
+    "edges": [
+      [
+        "ui",
+        "auth",
+        "認証・購読"
+      ],
+      [
+        "ui",
+        "client",
+        "サーバーstate"
+      ],
+      [
+        "client",
+        "api",
+        "HTTP / JWT"
+      ],
+      [
+        "ui",
+        "ipc",
+        "OS操作"
+      ],
+      [
+        "ipc",
+        "main",
+        "限定API"
+      ],
+      [
+        "main",
+        "devcontainer",
+        "学習コード"
+      ],
+      [
+        "api",
+        "db",
+        "業務transaction"
+      ],
+      [
+        "api",
+        "storage",
+        "ファイル"
+      ],
+      [
+        "db",
+        "worker",
+        "job queue"
+      ],
+      [
+        "worker",
+        "db",
+        "fencing・成果物台帳"
+      ],
+      [
+        "worker",
+        "storage",
+        "本文・環境・export"
+      ],
+      [
+        "worker",
+        "router",
+        "AI要求"
+      ],
+      [
+        "worker",
+        "docs",
+        "検索packet"
+      ],
+      [
+        "api",
+        "stripe",
+        "checkout / webhook"
+      ],
+      [
+        "api",
+        "collector",
+        "logs/traces/metrics"
+      ],
+      [
+        "worker",
+        "collector",
+        "telemetry"
+      ],
+      [
+        "main",
+        "collector",
+        "telemetry"
+      ],
+      [
+        "collector",
+        "clickhouse",
+        "集約・保存"
+      ],
+      [
+        "clickhouse",
+        "hyperdx",
+        "検索・可視化"
+      ]
+    ]
+  }
+}

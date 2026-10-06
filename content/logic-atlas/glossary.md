@@ -1,0 +1,137 @@
+# Metisロジック図解の用語集
+
+対象: develop `efb532f74c383cd35c055d85d3f989ba643c3611` / 2026-10-06。129項目。一般的な意味と対象commitでの役割を分けて説明する。
+
+[図解の閲覧版](index.html) · [図解文書](README.md) · [技術スタック説明](tech-stack.html)
+
+| 用語 | 一般的な意味 | Metisでの役割・注意点 |
+| --- | --- | --- |
+| API | アプリやサービスが処理を依頼したり、結果を受け取ったりするための窓口。 | 画面からバックエンドへ、ガイド取得や進捗保存などを依頼する。 |
+| HTTP | 要求と応答をやり取りする通信方式。HTTPSは通信を暗号化する。 | API呼出や外部AIへの要求で使う。 |
+| endpoint（API入口） | URLとHTTPメソッドの組合せで特定される処理の入口。 | 例: 進捗取得のGETと進捗保存のPATCHは別の入口。 |
+| GET / POST / PUT / PATCH | GETは取得、POSTは作成や処理の開始、PUTは指定資源の置換、PATCHは部分的な更新に使うHTTPメソッド。 | 図のGETは再取得、PATCHは進捗や既読状態の保存を示す。実際の意味は各API契約に従う。 |
+| 401 / 403 / 404 / 409 / 422 / 500 | HTTP応答コード。401は認証不成立、403は操作禁止、404は対象不在、409は状態の競合、422は入力・処理条件の不備、500はサーバー側の失敗。 | 他人の対象は情報を漏らさないため404として扱う経路がある。 |
+| 202 Accepted | 要求を受け付けたことを示すHTTP応答。処理の完了を意味しない。 | 生成ジョブの受付やStripeイベントの受信成功に使う。後続の状態確認が必要な経路もある。 |
+| router | URLや要求を対応する処理へ振り分ける入口。 | FastAPIでは認証・入力・応答の変換を担当し、業務判断はModuleやserviceへ渡す。 |
+| DTO | 通信で受け渡す情報の形を定めたデータ。Data Transfer Objectの略。 | DB内部の情報をそのまま出さず、画面へ返してよい項目に変換する。 |
+| schema（スキーマ） | データの項目・型・制約を定めた構造。DBではテーブル等をまとめる名前空間の意味もある。 | APIの入力・出力型や、生成内容の形式検査に使う。 |
+| OpenAPI | HTTP APIのURL、入力、出力などを記述する仕様形式。 | FastAPI実装から生成し、TypeScript APIクライアントの生成元にする。 |
+| 生成APIクライアント | API仕様から機械的に作られた呼出関数と型。 | 画面側の独自hookが利用する。生成物自体は業務判断やDB更新責任を持たない。 |
+| React | 画面を部品に分けて作るUIライブラリ。 | Desktopのrendererで学習・教材・設定画面を描画する。 |
+| hook | Reactの部品から状態や処理を再利用する仕組み。 | 機能ごとのAPI取得、保存操作、画面の寿命管理をまとめる。 |
+| Electron | Web技術でデスクトップアプリを作る実行基盤。 | 画面用rendererとOS操作用mainを分離し、限定したIPCで接続する。 |
+| renderer | Electronで画面を表示し、利用者の操作を受け取る実行領域。 | React UIとAPI呼出を担当する。OS操作はpreload経由でmainへ依頼する。 |
+| main process | ElectronでウィンドウやOS資源を管理する実行領域。 | workspace、Docker、コマンド実行、ファイル保存を管理する。 |
+| preload | 画面に公開してよい機能だけを橋渡しするElectronのスクリプト。 | contextBridgeで製品固有APIを公開し、rendererからmainへの入口を限定する。 |
+| IPC | 別々のプロセス間で要求・結果をやり取りする仕組み。Inter-Process Communicationの略。 | rendererからmainへ、workspace準備やコマンド実行を依頼する。 |
+| FastAPI | PythonでHTTP APIを構築するフレームワーク。 | 認証付きの業務APIとOpenAPI生成を担う。 |
+| BFF | 画面側の用途に合わせてAPIやデータをまとめるサーバー。Backend for Frontendの略。 | 画面への投影、業務認可、AI要求・応答の検証を行う。 |
+| Module | 一つの機能の判断・処理・更新責任をまとめた単位。 | 教材、決済、通知などが、それぞれの公開入口を持つ。 |
+| public interface（公開入口） | 別の機能から利用してよいと決めた関数・型・commandの集合。 | 別Moduleは内部実装を直接参照せず、この入口を経由する。公開Web APIとは別の意味。 |
+| port | 必要な能力を表すインターフェース。通信のポート番号とは別の意味。 | 業務処理は「保存する」「AIへ依頼する」等の能力に依存し、具体的なSupabaseやAI実装から分離する。 |
+| adapter | 能力のインターフェースを、具体的な外部サービスや実装に接続する部品。 | 業務portをSupabase RPC、Storage、AI providerなどへつなぐ。 |
+| composition | 起動時にModule・port・adapterを接続する組立部分。 | APIとworkerの依存注入やhandler登録を行う。業務判断自体は所有しない。 |
+| platform | 通信・ログなど、複数機能で使う技術基盤。 | Moduleから利用するが、各機能の業務更新責任は持たない。 |
+| command / query | commandは状態を変える要求、queryは情報を読む要求。 | 管理画面の参照と、停止・返金などの更新操作を分ける。SQL文のqueryという意味もあり、文脈で区別する。 |
+| read model | 画面や一覧の表示に適した形へまとめた読み取り用データ。 | 検索・管理dashboard・取引詳細の横断参照を提供する。 |
+| QueryClient | TanStack Queryで取得済みサーバーデータを管理する主体。 | 保存結果をキャッシュへ反映する。利用者が切り替わったら旧利用者のデータを消す。 |
+| cache（キャッシュ） | 再取得や再計算を減らすため、一時的に保存したデータ。 | API取得結果や再利用可能なAI出力を保持する。DBの永続的な正本とは区別する。 |
+| owner | ある処理・データ・資源の所有者。 | 認証図では現在の利用者、組織図では管理権限を持つ所属者、教材図では作者を指す。文脈ごとに意味が異なる。 |
+| generation（世代） | 新旧の処理を区別するための番号や識別値。 | 画面の古い取得結果や、以前のjob attemptによる更新を現在の状態へ混入させない。 |
+| lifecycle / dispose | 処理や部品の開始から終了までの期間。disposeは終了時に購読・資源を解放する操作。 | 画面離脱やHMR終了後のcallback、通知購読、古い認証検証結果を無効化する。 |
+| OAuth | 利用者が外部サービスへ認証・許可を委ね、結果をアプリに戻す仕組み。 | ソーシャルログインや外部identityの追加に使う。ログインでは外部サービス側の認証の仕組みと組み合わせる。 |
+| PKCE | 認証開始時に作った秘密の検証値を、認証結果の交換時に照合するOAuthの保護方式。 | 外部ブラウザーから戻った認証コードを、開始したアプリのsessionへ結び付ける。 |
+| callback | 処理が終わったときやイベントが発生したときに呼ばれる処理。 | OAuth結果の受取にも使う。古いcallbackが現在の利用者状態を変更しないよう寿命を確認する。 |
+| loopback / deeplink | loopbackは自分のPC内への通信、deeplinkは特定アプリや画面を開くURL。 | 外部ブラウザーのOAuth結果をDesktopへ戻す入口。 |
+| SDK | サービスを利用するための公式ライブラリ群。Software Development Kitの略。 | Supabase SDKが認証・session更新・identity操作などを扱う。 |
+| JWT / Bearer | JWTは署名付きの情報を持つtoken。Bearerはtokenを持つ者としてAPIへ提示する認証方式。 | APIで署名・期限・発行元・対象・利用者IDを検証する。 |
+| claims / HS256 / JWKS | claimsはJWT内の情報。HS256は共有秘密による署名方式、JWKSは公開鍵群の配布形式。 | 認証設定に応じて署名鍵を選び、JWTが有効か確認する。 |
+| principal | 認証結果を業務処理で使える形にまとめた利用者情報。 | user ID、role、account status等を持ち、APIの認可判断に使う。 |
+| 認証 / 認可 | 認証は「誰か」を確認すること。認可は「その人がこの操作をできるか」を判断すること。 | 有効なログインでも、他人の進捗更新やowner限定操作は許可されない。 |
+| snapshot | ある時点の情報を固定して保存した写し。 | 生成時の設定、教材化入力、法務公開本文を固定し、後の設定変更で処理の意味が変わらないようにする。 |
+| hash / fingerprint | 入力から作る要約値。fingerprintは対象を識別・照合するための指紋値。 | 法務本文、入力、環境archive等の同一性を確認する。暗号化して内容を復元するものではない。 |
+| Vault | 秘密情報を保管・管理する仕組み。 | 組織APIキーの秘密本文を保管し、利用者向け応答には設定有無などのmetadataだけを返す。 |
+| metadata | 本文そのもの以外の、データを説明する情報。 | 作成時刻、設定有無、版、実行件数など。秘密本文や教材本文とは分けて扱う。 |
+| guardrail | AIへ渡す入力や生成出力が、安全性の条件を満たすか検査する処理。 | developではGuardrailDecisionの構造化応答でallowed等を検証し、判定と費用を記録する。blockされた内容を次工程へ進めない。ガイド専用gatewayのlocal/test・DEBUG省略と通常検査を区別する。 |
+| OpenRouter / provider | OpenRouterは複数のAIモデルへ要求を送る窓口。providerは実際にAI処理を提供する実行先。 | 生成や安全判定の要求を送り、実費・token・遅延などを記録する。 |
+| structured output（構造化応答） | 決めたschemaに従うJSON等の形式でAIから結果を受け取り、型と項目を検証する方式。 | ガードレールの許可判断、構成案、教材タグなどで利用する。OpenRouter adapterはstrict schema対応を確認し、対応しないrouteではfallback後もPydanticで検証する。Jev専用Decisions APIは対象developに含まれない。 |
+| token | AI文脈ではモデルが文章を処理する単位。認証文脈では権限を示す証票。 | AI費用や入力上限のtokenと、JWTの認証tokenを混同しない。 |
+| quota | 利用できる回数・量の割当。 | プランに応じたガイド生成枠を確認・消費する。providerの実費上限とは別。 |
+| ソフト上限 | 上限に達した後の新規処理を止める方式。既に進行中の処理による超過はあり得る。 | 確認済実費が既定5 USD以上なら次の送信を停止する。厳密に5 USD以内を保証する上限ではない。 |
+| harness（ハーネス） | 複数の生成・検査・修正・保存を制御する実行の枠組み。 | ガイド生成専用harnessが構成案、章patch、品質確認、安全確認、終端確定を順序付ける。 |
+| LangGraph | 状態や条件に応じてAI処理の流れを組み立てる仕組み。 | 実際のStateGraph/ToolNodeはGrounded Docsの公式文書検索エージェントで使用する。LangGraphGuideGenerationWorkflowというクラス名だけで全工程がgraph実行とは判断しない。ガイド本生成は専用harnessが制御する。 |
+| outline / chapter / step | outlineはガイドの構成案、chapterは章、stepは章内の学習手順。 | 利用者がoutlineを承認してから本文を生成し、学習中はstep単位で進捗を記録する。 |
+| stage / scope | stageは処理段階。scopeは操作や参照を許す範囲。 | 構成案生成等のstageを記録し、patchが変更してよい章・節のscopeを限定する。 |
+| revision | 内容や契約の変更を区別する版。 | 章の編集前提となるbase revisionと、jobのimplementation revisionは別々の版を指す。 |
+| patch / hunk | patchは変更差分。hunkは変更対象の文脈、削除行、追加行をまとめた差分の単位。 | 章全文を毎回作り直さず、許可scopeだけを部分更新する。 |
+| anchor / locator | anchorは文書内の安定した目印、locatorは変更対象を探す指定。 | 別の節を誤って書き換えたり、保護された構造を壊したりしないよう照合する。 |
+| 決定的処理 | 同じ入力と条件なら同じ結果になる処理。 | タグ推薦、patch適用、構造・version検査など。AIの応答の揺れに依存しない部分を指す。 |
+| CAS | 現在値が想定した値と一致する場合だけ更新する方式。Compare-And-Swapの略。 | 章revisionや実装default mapを照合し、古い処理による上書きを防ぐ。 |
+| RepairGroup | 複数箇所の修正を、一つの整合した変更群として扱う単位。 | 章をまたぐ矛盾を直す際に、一部の章だけ保存される状態を避ける。 |
+| blocking / hard / major / minor | blockingは完成を止める判定。hard、major、minorは品質findingの重さを分類する値。 | 意味品質の指摘と構造・出力安全性を区別する。localの特定モードでも全ての検査を解除するわけではない。 |
+| finding / reviewer | findingは検査で見つかった指摘。reviewerは生成内容を点検する役割。 | 影響scopeと重大度を記録し、修正または停止を判断する。教材の利用者レビューとは文脈が異なる。 |
+| context / compaction | contextはAIや処理へ渡す文脈。compactionは要点を残して文脈の量を減らす処理。 | ガイドや過去の修正情報を整理し、長すぎる入力を避ける。 |
+| Grounded Docs / MCP | Grounded Docsは公式文書の索引・参照機能。MCPは外部ツールを共通の方式で呼び出すための接続規約。 | 読み取り専用検索から、章の生成・reviewに使う文書packetを作る。 |
+| packet | 関連情報を一つのまとまりにしたもの。ここでは通信の小分割単位の意味ではない。 | 同じ章のpatchとreviewが同じ公式文書の参照材料を共有する。 |
+| 冪等性 / 冪等キー | 同じ要求を繰り返しても、重複した成果物や副作用を生まない性質。 | 応答喪失や再送でも同じjob・相談応答・receiptを再利用する。例えば二重に生成枠を消費しない。 |
+| retry / fallback | retryは同じ目的の処理の再試行、fallbackは代わりの方法へ切り替えること。 | 一時的な通信失敗等からの回復に使う。全エラーを再送できるわけではなく、予算超過や所有権喪失は停止する。 |
+| draft / active / completed | draftは未完成の下書き、activeは学習可能なガイド、completedは学習完了したガイド。 | 表示能力を分離する。生成完了と学習完了は別の状態。 |
+| capability | その対象で、今どの操作が可能かを表す値。 | preview、学習開始、進捗更新、完了などの可否をAPI側の状態から計算する。 |
+| workspace / session | workspaceは学習用の作業場所。sessionは処理や利用状態のひとまとまり。 | 認証session、ガイド生成session、workspace sessionは別の対象で、同じ識別子として扱わない。 |
+| Dev Container / Docker | Dev Containerはコンテナ内の開発環境。Dockerはコンテナを動かすための基盤の一つ。 | 利用者のコードはローカルのコンテナ内で実行し、ホストOSで直接実行する経路と分ける。 |
+| CLI | 文字のコマンドで操作するための入口。Command-Line Interfaceの略。 | mainがDev Containers CLI等を呼び出して環境を準備・起動する。 |
+| process supervisor | 子プロセスの開始・出力・終了・時間制限を管理する部品。 | mainでコマンド実行の寿命を管理し、残留processや出力の扱いを制御する。 |
+| evidence / binding | evidenceは実行・確認した内容の記録。bindingは記録を対象のIDやfingerprintへ結び付ける照合。 | 他のguideや環境で採った証跡を現在のstep評価に流用しない。 |
+| indeterminate / execution_error | indeterminateは観測材料不足で判定不能、execution_errorは実行や証跡・条件の処理に不備がある状態。 | 「条件未達成」と区別して表示し、再取得・環境確認を促す。 |
+| materialization（教材化） | 学習済ガイドの内容を、再利用できる教材の構造へ変換する処理。 | 本人の完了と品質を確認し、章本文、sample code、検索タグ等を保存する。 |
+| entitlement（利用権） | 対象の機能や教材を利用してよいことを示す権利。 | プラン権利と教材の取得・購入権を確認する。教材がpublicかどうかとは別に判断する。 |
+| visibility | 対象を誰に見せるかを表す状態。 | 教材のprivate、public、pending_delete、suspended、deletedと利用権を組み合わせて判定する。 |
+| pending_delete / suspended / deleted | 教材では順に削除要求中、停止中、削除済みの状態。 | 状態ごとに作者・他利用者の操作を制限する。単一の公開フラグとして扱わない。 |
+| enrollment | 利用者が教材学習を開始したことを表す記録。 | review投稿には作者でないことに加えて、この開始記録が必要。 |
+| upsert | 対象がなければ追加し、あれば更新する操作。 | 同じ利用者の教材reviewを重複投稿せず更新する。 |
+| cursor / keyset | cursorは一覧の続きを指定する値。keysetは最後に表示した項目の並び順の値から次を取得する方式。 | 検索条件・viewerをcursorに結び付け、別条件の一覧へ使い回さない。 |
+| Stripe / checkout / portal | Stripeは決済サービス。checkoutは決済画面、portalは購読・請求情報などを管理する画面。 | サーバーの価格・商品snapshotから外部決済を開始する。 |
+| Webhook | 外部サービスからイベント発生を通知するHTTP要求。 | Stripeの支払いや購読変更を署名検証後に受け取り、重複・再送を扱う。 |
+| transaction（トランザクション） | DBでは一連の変更をまとめて成功または失敗させる単位。決済文脈では取引記録も指す。 | followと通知、jobとqueueなどを一括確定する。図の「取引」とDB原子更新を区別する。 |
+| 原子的 / atomic | 複数の変更が全て成功するか、全て反映されないかのどちらかになる性質。 | 生成枠とguide骨格、購読と権利などが一部分だけ更新される状態を防ぐ。 |
+| job / worker / handler | jobは後で処理する仕事、workerはその仕事を受け取る実行プロセス、handlerは種類ごとの処理本体。 | ガイド生成、教材化、export、退会などを画面の要求から切り離して実行する。 |
+| queue / PGMQ / poller | queueは仕事の待ち行列、PGMQはPostgresベースのキュー機能、pollerは仕事の到着を繰り返し確認する処理。 | cpu_boundとio_boundの2キューをworkerが並行して確認する。 |
+| cpu_bound / io_bound | 処理特性に応じたキュー名。CPU計算寄りか、外部通信・入出力待ち寄りかを分ける。 | 2 pollerに仕事を振り分ける。名前だけで各handlerの実装済みを判断しない。 |
+| attempt / claim | attemptは1回の実行試行。claimはその仕事を処理する権利を取得する操作。 | jobを受け取るたび、token・generation・期限を持つ実行権を確保する。 |
+| lease / heartbeat / visibility timeout | leaseは処理権の期限。heartbeatは実行継続の通知。visibility timeoutは受領したqueueメッセージを他の受取者から一時的に隠す期間。 | 長時間jobの実行権とメッセージの非表示期間を延長する。教材の公開範囲を指すvisibilityとは別。 |
+| fencing | 古い実行者が後から状態を書き換えることを防ぐ仕組み。 | attemptのtoken・世代・期限をRPCで照合し、所有権を失ったworkerの更新を拒否する。 |
+| reaper / backoff | reaperは期限切れの実行等を回収する処理。backoffは再試行・確認間隔を徐々に長くする待機方式。 | 停止したworkerのattemptを回収し、空queueや通信障害で無駄に連続要求しない。 |
+| terminal / receipt | terminalは処理が最終状態に達したこと。receiptは確定した操作結果を再確認するための記録。 | 成功・失敗等を確定し、応答を失っても同じ結果を再利用する。 |
+| placeholder / stub | 構造や入口だけあり、実処理がまだ完成していない部分。 | code_evaluation handlerの存在は、コード評価機能が動作することを意味しない。 |
+| Supabase / Postgres | Supabaseは認証・DB・Storage等を提供する基盤。PostgresはそのDBの中心となるデータベース。 | 利用者、ガイド、教材、権利、job等を保存し、認証・ファイル管理とも接続する。 |
+| RPC | 名前付きの処理を、離れた場所から呼び出す方式。Remote Procedure Callの略。 | ここでは主にPostgres関数を呼び、権限・lock・複数行更新をDB内で確定する。 |
+| SQL / DDL / migration | SQLはDB操作言語、DDLはテーブル等の定義変更、migrationは変更を順序付きで適用する履歴。 | supabase/migrationsのSQLをDB実装の正本とする。 |
+| RLS | DBの行単位で読み書きを制限する仕組み。Row Level Securityの略。 | 本人・組織等のscopeをDBで制限する。教材の利用権等の業務認可はAPI側でも確認する。 |
+| service_role | 通常利用者より強い権限を持つ、サーバー側処理用の役割。 | workerや限定RPC adapter等で使う。利用者向けrendererへ秘密キーを渡さない。 |
+| UNIQUE / FK / CHECK / lock | UNIQUEは重複禁止、FKは参照先の整合性、CHECKは値の条件、lockは競合する更新の調整。 | 同じ購入・follow・進捗の重複や、同時更新で不整合が起きることを防ぐ。 |
+| trigger / policy | triggerはDB更新等に応じて自動実行する処理。policyは許可条件や運用方針。 | SQL索引のpolicyは主にRLS許可条件。GC policyやguardrail policyは別の方針を示す。 |
+| Storage / bucket / object key | Storageはファイル保存サービス、bucketは保存先の区分、object keyは区分内のファイル識別名。 | 教材本文・サムネイル・環境archiveを保存する。DBにはassetの参照や証跡を残す。 |
+| asset / manifest / archive | assetは保存されたファイル等、manifestは内容・構成・識別情報の一覧、archiveは複数ファイルをまとめたもの。 | 学習環境の内容とguide/job/fingerprintの対応を確認して展開する。 |
+| immutable / read-back / 2PC | immutableは確定後に内容を変えないこと、read-backは書いたものを再取得して確認すること、2PCは複数システムを二段階で一括確定する方式。 | 環境成果物は不変keyを使い、Storageへ書いた内容を再確認する。DBとStorageを一括確定する2PCは使っていない。 |
+| reserved / verified / published | 環境成果物台帳では、予約済み、内容検証済み、公開確定済みの段階。 | DB台帳とStorage内容を段階的に照合する。AI台帳のreservedは実行権予約であり、金額予約ではない。 |
+| 署名URL | 署名と期限により、対象へのアクセスを限定したURL。 | 非公開Storage成果物を、権限確認後に必要な時間だけ取得可能にする。 |
+| GC / retention / tombstone | GCは不要資源の回収、retentionは保持期間、tombstoneは削除後も対象や結果を追跡するための記録。 | 未解決の環境objectを誤って消さず、削除対象をclaimして観測結果を保存する。 |
+| dry-run / inventory / reconciliation | dry-runは変更せず対象・結果を確認する実行。inventoryは状態一覧。reconciliationは記録と実状態の照合。 | GCやactivation前に候補とblockerを確認し、削除済objectの実状態も再観測する。 |
+| activation / drain / rollback | activationは新しい実装・設定の有効化、drainは処理中の仕事を収束させること、rollbackは以前の実装・状態へ戻すこと。 | R09D切替は停止窓と完全mapのCASで行い、戻せるbinaryにも制約がある。 |
+| OTel / Collector / telemetry | OpenTelemetryは観測データを統一して収集する仕組み。Collectorはその集約・転送先、telemetryは観測情報。 | desktop・API・workerのログ、処理の追跡、件数・時間を関連付ける。 |
+| logs / traces / metrics | logsは出来事の記録、tracesは処理が複数段階を通る経路、metricsは件数・時間などの集計値。 | requestやjobの失敗を、provider待ちやDB処理と結び付けて調べる。 |
+| ClickHouse / HyperDX | ClickHouseは観測データの保存・集計に使うDB、HyperDXはログや処理経路を検索・表示するツール。 | OTelの観測情報を保存し、横断的な障害調査に使う。 |
+| audit / append-only | auditは誰が何をしたかを追跡する記録。append-onlyは既存記録を上書きせず追加する方式。 | 管理commandの成功・失敗と理由を保存する。 |
+| AST / 静的解析 | ASTはコードの構文を木構造へ変換したもの。静的解析はアプリを動かさずコードから調べること。 | 関数・条件式・呼出先を索引化した。実際の実行経路や動的dispatchを完全に証明するものではない。 |
+| CI / E2E / smoke | CIは変更を継続的に自動検証する仕組み、E2Eは利用者操作から処理結果までの検証、smokeは起動など重要な最小経路の確認。 | dev:ptestとOS別CI、配布物の起動検証を使い分ける。 |
+| UC / ADR / R番号 | UCはユースケースID、ADRは設計判断の記録、R番号はリファクタリングの領域・段階を表す識別子。 | 図と仕様・判断・移行契約を結び付ける。R番号は製品の機能名ではない。 |
+| 技術タグ | 教材やゴールに関連する技術を分類する目印。 | PythonやFastAPIなどのタグmasterと照合して推薦する。利用者が選ぶ生成タグと、教材検索タグの付与は別の処理。 |
+| intent（能力カテゴリ） | 要件回答から分かる、必要な実装能力の分類。 | Web、認証、ローカル保存などを固定カテゴリにし、アプリの決定ルールで技術タグ候補へ変換する。 |
+| slug / alias | slugは対象を識別しやすい短い表記、aliasは同じ対象を表す別の名前。 | タグ推薦では技術の正式名・slug・代表的な別名を正規化して照合する。importのaliasはコード上の別名やパス指定を指す。 |
+| override | 通常の設定や計算結果に対する、明示的な上書き指定。 | 管理者による生成枠等の上書きや、一回の生成条件の変更を指す。何を・いつまで上書きするかは対象の契約で異なる。 |
+| membership | 利用者と組織の所属関係を表す記録。 | 組織内のroleとmember IDを保持し、メンバー削除・脱退・最終owner保護の対象になる。 |
+| UUID / UUIDv5 | 対象を識別するID。UUIDv5は決まった名前空間と入力から同じIDを生成する方式。 | 環境object identityの再現や、job・guide・session等の識別に使う。ID一致だけで利用権があるとはみなさない。 |
+| registry | 種類や名前と、対応する処理を登録した一覧。 | workerがjob typeとimplementation revisionに対応するhandlerを探す。未対応の組合せは自動的に別処理へ置き換えない。 |
+| 匿名化 / マスキング | 匿名化は個人との結び付きを取り除く処理、マスキングは秘密や識別情報を伏せる処理。 | 退会時の保持取引データと、AI相談の短期保存文脈で使う。単にログに出さないこととは別。 |
+| preflight（事前検査） | 本処理を始める前に、必要な環境と条件を確認すること。 | CIではDocker起動前後のcontext、Linux Engine、コンテナ一覧を検査して診断JSONを残す。DBのactivation前検査とは検査対象が違う。 |
+| GitHub Projects / Discord日次通知 | GitHub ProjectsはIssueの予定や進捗を管理する場所。Discordは担当一覧の通知先。 | 毎日09:00 JSTにactiveメンバーの担当Issueを分類し、同日・同じ通知先の再送を履歴hashで抑止する。アプリ内notificationsの配信とは別の開発運用。 |

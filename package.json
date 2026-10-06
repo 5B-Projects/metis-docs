@@ -1,0 +1,36 @@
+{
+  "name": "metis-docs",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=26.5.0"
+  },
+  "scripts": {
+    "generate": "node scripts/generate-docs.mjs",
+    "start": "pnpm generate && docusaurus start --host 127.0.0.1",
+    "build": "pnpm generate && docusaurus build",
+    "serve": "docusaurus serve --host 127.0.0.1",
+    "test": "node --test scripts/*.test.mjs",
+    "dev:ptest": "pnpm test && pnpm build && node scripts/check-build.mjs"
+  },
+  "dependencies": {
+    "@docusaurus/core": "3.10.2",
+    "@docusaurus/preset-classic": "3.10.2",
+    "@docusaurus/theme-mermaid": "3.10.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 3 chrome versions",
+      "last 3 firefox versions",
+      "last 3 safari versions"
+    ]
+  }
+}
